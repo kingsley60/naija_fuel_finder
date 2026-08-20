@@ -1,0 +1,24 @@
+{% extends "stations/base.html" %}
+{% block content %}
+<div style="max-width: 400px; margin: 2rem auto; padding: 1rem;">
+    <div class="station-card">
+        <h2 style="margin-bottom: 1rem; color: #064e3b;">Login to NaijaFuelFinder</h2>
+        <form method="POST">
+            {% csrf_token %}
+            {% for field in form %}
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.25rem;">{{ field.label }}</label>
+                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px;">
+                    {% if field.errors %}
+                        <p style="color: red; font-size: 0.8rem;">{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn-primary" style="width: 100%;">Log In</button>
+        </form>
+        <p style="margin-top: 1rem; text-align: center;">
+            Don't have an account? <a href="{% url 'register' %}" style="color: #059669; font-weight: 600;">Register here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

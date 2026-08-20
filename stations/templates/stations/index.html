@@ -1,0 +1,72 @@
+{% extends "stations/base.html" %}
+{% load static %}
+
+{% block content %}
+<!-- Offline Status Banner -->
+<div id="offline-banner" style="display:none; background:#dc2626; color:white; text-align:center; padding:10px; font-weight:bold; font-size: 0.9rem;">
+    ⚠️ You are offline. Showing cached data.
+</div>
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <select id="fuelFilter">
+        <option value="">All Fuel Types</option>
+        <option value="PMS">Petrol (PMS)</option>
+        <option value="AGO">Diesel (AGO)</option>
+        <option value="LPG">Cooking Gas (LPG)</option>
+    </select>
+    <select id="brandFilter">
+        <option value="">All Brands</option>
+        <option value="NNPC">NNPC</option>
+        <option value="TOTAL">Total</option>
+        <option value="OANDO">Oando</option>
+        <option value="INDEPENDENT">Independent</option>
+    </select>
+    <button id="locateBtn" class="btn-primary">📍 Find Near Me</button>
+    <button id="enableAlertsBtn" class="btn-secondary">🔔 Enable Alerts</button>
+</div>
+
+<!-- Map Container -->
+<div id="map"></div>
+
+<!-- Station List Container -->
+<div id="stationList" class="station-list"></div>
+
+<!-- Report Price Modal (Hidden by default) -->
+<div id="reportModal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="modalTitle">Report Price</h3>
+        <form id="reportForm">
+            <input type="hidden" id="reportStationId">
+            
+            <label>Fuel Type</label>
+            <select id="reportFuel" required>
+                <option value="PMS">Petrol (PMS)</option>
+                <option value="AGO">Diesel (AGO)</option>
+                <option value="LPG">Cooking Gas (LPG)</option>
+            </select>
+            
+            <label>Price per Litre (₦)</label>
+            <input type="number" id="reportPrice" min="200" max="2000" required>
+            
+            <label>Queue Status</label>
+            <select id="reportQueue">
+                <option value="NONE">No Queue</option>
+                <option value="SHORT">Short (< 30 mins)</option>
+                <option value="LONG">Long (30 mins - 2 hrs)</option>
+                <option value="VERY_LONG">Very Long (> 2 hrs)</option>
+            </select>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" id="reportAvailable" checked> Fuel is Available
+            </label>
+            
+            <button type="submit" class="btn-primary">Submit Report</button>
+            <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/app.js' %}"></script>
+{% endblock %}

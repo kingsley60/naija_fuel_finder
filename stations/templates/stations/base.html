@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NaijaFuelFinder</title>
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#064e3b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+    <!-- Leaflet CSS for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Our custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <nav class="navbar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem;">
+    <h1 style="margin: 0;">⛽ NaijaFuelFinder</h1>
+        <div>
+            {% if user.is_authenticated %}
+                <span style="margin-right: 1rem; font-weight: 500;">Hello, {{ user.username }}</span>
+                <form action="{% url 'logout' %}" method="POST" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" style="background: none; border: 1px solid white; color: white; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer;">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" style="color: white; text-decoration: none; margin-right: 1rem; font-weight: 500;">Login</a>
+                <a href="{% url 'register' %}" style="background: white; color: #064e3b; padding: 0.4rem 0.8rem; border-radius: 6px; text-decoration: none; font-weight: 600;">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Leaflet JS for the map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Our custom JS -->
+    {% block scripts %}{% endblock %}
+    <!-- Register Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register("/sw.js", { scope: '/' })
+            .then(registration => {
+            console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+            });
+        });
+    }
+    </script>
+</body>
+</html>
