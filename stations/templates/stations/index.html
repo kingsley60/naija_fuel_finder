@@ -8,47 +8,60 @@
 </div>
 <!-- Filter Bar -->
 <div class="filter-bar">
-    <select id="fuelFilter">
+    <label for="fuelFilter">Fuel</label>
+    <select id="fuelFilter" aria-label="Filter by fuel type">
         <option value="">All Fuel Types</option>
         <option value="PMS">Petrol (PMS)</option>
         <option value="AGO">Diesel (AGO)</option>
         <option value="LPG">Cooking Gas (LPG)</option>
     </select>
-    <select id="brandFilter">
+    <label for="brandFilter">Brand</label>
+    <select id="brandFilter" aria-label="Filter by station brand">
         <option value="">All Brands</option>
         <option value="NNPC">NNPC</option>
         <option value="TOTAL">Total</option>
         <option value="OANDO">Oando</option>
         <option value="INDEPENDENT">Independent</option>
     </select>
-    <button id="locateBtn" class="btn-primary">📍 Find Near Me</button>
-    <button id="enableAlertsBtn" class="btn-secondary">🔔 Enable Alerts</button>
+    <label for="radiusFilter">Search</label>
+    <select id="radiusFilter" aria-label="Search radius">
+        <option value="nearest" selected>Closest 10 in Nigeria</option>
+        <option value="5">5 km</option>
+        <option value="10">10 km</option>
+        <option value="25">25 km</option>
+        <option value="50">50 km</option>
+        <option value="100">100 km</option>
+    </select>
+    <button id="locateBtn" class="btn-primary" type="button">📍 Find Near Me</button>
 </div>
+<p id="statusMessage" class="status-message" role="status" aria-live="polite">
+    Showing stations near Abuja. Choose “Find Near Me” to search around your location.
+</p>
 
 <!-- Map Container -->
-<div id="map"></div>
+<div id="map" role="region" aria-label="Map of nearby fuel stations"></div>
 
 <!-- Station List Container -->
-<div id="stationList" class="station-list"></div>
+<div id="stationList" class="station-list" aria-live="polite"></div>
 
 <!-- Report Price Modal (Hidden by default) -->
-<div id="reportModal" class="modal hidden">
+<div id="reportModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content">
         <h3 id="modalTitle">Report Price</h3>
         <form id="reportForm">
             <input type="hidden" id="reportStationId">
             
-            <label>Fuel Type</label>
+            <label for="reportFuel">Fuel Type</label>
             <select id="reportFuel" required>
                 <option value="PMS">Petrol (PMS)</option>
                 <option value="AGO">Diesel (AGO)</option>
                 <option value="LPG">Cooking Gas (LPG)</option>
             </select>
             
-            <label>Price per Litre (₦)</label>
-            <input type="number" id="reportPrice" min="200" max="2000" required>
+            <label for="reportPrice">Price per Litre (₦)</label>
+            <input type="number" id="reportPrice" min="200" max="2000" step="0.01" required>
             
-            <label>Queue Status</label>
+            <label for="reportQueue">Queue Status</label>
             <select id="reportQueue">
                 <option value="NONE">No Queue</option>
                 <option value="SHORT">Short (< 30 mins)</option>
@@ -61,7 +74,7 @@
             </label>
             
             <button type="submit" class="btn-primary">Submit Report</button>
-            <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+            <button type="button" id="closeReportModal" class="btn-secondary">Cancel</button>
         </form>
     </div>
 </div>

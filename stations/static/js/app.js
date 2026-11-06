@@ -1,242 +1,247 @@
-// 1. Initialize the map centered on Abuja
-const map = L.map('map').setView([9.0765, 7.3986], 6); 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
+const defaultLocation = { lat: 9.0765, lng: 7.3986 };
+let searchLocation = { ...defaultLocation };
+
+const map = L.map("map").setView([defaultLocation.lat, defaultLocation.lng], 6);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors"
 }).addTo(map);
 
-let markers = [];
+let stationMarkers = [];
+let userMarker = null;
+let reportTrigger = null;
 
-// Custom Red Icon for User Location
 const userIcon = L.icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
     shadowSize: [41, 41]
 });
 
-let userMarker = null; // This will hold the user's red marker
+const statusMessage = document.getElementById("statusMessage");
+const stationList = document.getElementById("stationList");
 
-// 2. Function to fetch and display stations
+function setStatus(message) {
+    statusMessage.textContent = message;
+}
+
+function addText(parent, tagName, text, className = "") {
+    const element = document.createElement(tagName);
+    element.textContent = text;
+    if (className) element.className = className;
+    parent.appendChild(element);
+    return element;
+}
+
+function makeReportButton(station, trigger) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn-small";
+    button.textContent = "Report Price";
+    button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        window.openReport(station.id, station.name, trigger || button);
+    });
+    return button;
+}
+
 async function loadStations(lat, lng) {
-    const fuel = document.getElementById('fuelFilter').value;
-    const brand = document.getElementById('brandFilter').value;
-    
-    const params = new URLSearchParams({ 
-        lat: lat, 
-        lng: lng, 
-        radius: 50, 
-        fuel_type: fuel, 
-        brand: brand 
+    const nationwideSearch = document.getElementById("radiusFilter").value === "nearest";
+    const params = new URLSearchParams({
+        lat,
+        lng,
+        radius: document.getElementById("radiusFilter").value,
+        fuel_type: document.getElementById("fuelFilter").value,
+        brand: document.getElementById("brandFilter").value
     });
 
     try {
-        const res = await fetch(`/api/stations/?${params}`);
-        const stations = await res.json();
+        const response = await fetch(`/api/stations/?${params}`);
+        const stations = await response.json();
+        if (!response.ok) {
+            throw new Error(stations.error || "Could not load nearby stations.");
+        }
 
-        markers.forEach(m => map.removeLayer(m));
-        markers = [];
-        
-        const listEl = document.getElementById('stationList');
-        listEl.innerHTML = '';
+        stationMarkers.forEach((marker) => map.removeLayer(marker));
+        stationMarkers = [];
+        stationList.replaceChildren();
 
         if (stations.length === 0) {
-            listEl.innerHTML = '<p style="text-align:center; color:#6b7280;">No stations found in this area.</p>';
+            addText(stationList, "p", "No stations are available in the station database yet.");
+            setStatus("No stations found. Try a different fuel or brand filter.");
             return;
         }
 
-        stations.forEach(s => {
-            const marker = L.marker([s.lat, s.lng]).addTo(map);
-            const priceStr = s.price ? `₦${s.price}/L` : 'No recent report';
-            
-            marker.bindPopup(`
-                <strong>${s.name}</strong><br>
-                ${priceStr}<br>
-                Queue: ${s.queue || 'Unknown'}<br>
-                <button class="btn-small" onclick="openReport(${s.id}, '${s.name.replace(/'/g, "\\'")}')">📝 Report Price</button>
-            `);
-            markers.push(marker);
+        stations.forEach((station) => {
+            const price = station.price
+                ? `₦${station.price}/L`
+                : "No price reported";
+            const marker = L.marker([station.lat, station.lng]).addTo(map);
+            const popup = document.createElement("div");
+            addText(popup, "strong", station.name);
+            addText(popup, "div", price);
+            addText(popup, "div", `Queue: ${station.queue || "Unknown"}`);
+            popup.appendChild(makeReportButton(station));
+            marker.bindPopup(popup);
+            stationMarkers.push(marker);
 
-            const card = document.createElement('div');
-            card.className = 'station-card';
-            card.innerHTML = `
-                <div><strong>${s.name}</strong><span class="badge">${s.brand}</span></div>
-                <div style="margin-top:4px; font-size:1.1rem; color:#059669; font-weight:bold;">${priceStr} <span style="font-size:0.8rem; color:#6b7280; font-weight:normal;">· ${s.distance_km}km away</span></div>
-                <div class="card-meta">Queue: ${s.queue || '?'} · Updated: ${s.updated || 'Never'}</div>
-                <button class="btn-small" onclick="openReport(${s.id}, '${s.name.replace(/'/g, "\\'")}')">Report Price</button>
-            `;
-            
-            card.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'BUTTON') {
-                    map.setView([s.lat, s.lng], 15); 
-                    marker.openPopup();
-                }
+            const card = document.createElement("article");
+            card.className = "station-card";
+            const selectButton = document.createElement("button");
+            selectButton.type = "button";
+            selectButton.className = "station-select";
+            selectButton.setAttribute(
+                "aria-label",
+                `Show ${station.name}, ${station.distance_km} kilometres away on the map`
+            );
+            const heading = document.createElement("div");
+            addText(heading, "strong", station.name);
+            if (station.brand) addText(heading, "span", station.brand, "badge");
+            selectButton.appendChild(heading);
+
+            const priceLine = document.createElement("div");
+            priceLine.className = "station-price";
+            addText(priceLine, "strong", price);
+            addText(priceLine, "span", `${station.distance_km} km away`, "distance");
+            selectButton.appendChild(priceLine);
+
+            const queue = station.queue ? station.queue.replaceAll("_", " ") : "Unknown";
+            const availability = station.available === null
+                ? "Availability unknown"
+                : station.available ? "Fuel available" : "Reported unavailable";
+            const updated = station.updated ? ` · Updated ${station.updated}` : "";
+            addText(selectButton, "p", `Queue: ${queue} · ${availability}${updated}`, "card-meta");
+            selectButton.addEventListener("click", () => {
+                map.setView([station.lat, station.lng], 15);
+                marker.openPopup();
             });
-            listEl.appendChild(card);
+            card.appendChild(selectButton);
+            card.appendChild(makeReportButton(station));
+            stationList.appendChild(card);
         });
-        
-        if (markers.length > 0) {
-            const group = L.featureGroup(markers);
-            map.fitBounds(group.getBounds().pad(0.1));
-        }
 
+        const searchPoints = stationMarkers.map((marker) => marker.getLatLng());
+        searchPoints.push(L.latLng(lat, lng));
+        if (userMarker) searchPoints.push(userMarker.getLatLng());
+        map.fitBounds(L.latLngBounds(searchPoints).pad(0.1), { maxZoom: 13 });
+        setStatus(nationwideSearch
+            ? `Showing the ${stations.length} closest station${stations.length === 1 ? "" : "s"} in Nigeria, sorted by distance.`
+            : `${stations.length} station${stations.length === 1 ? "" : "s"} found within ${document.getElementById("radiusFilter").value} km.`);
     } catch (error) {
-        console.error('Error loading stations:', error);
+        setStatus(error.message || "Unable to load stations. Check your connection and try again.");
     }
 }
 
-// 3. Geolocation Button (With Red Marker)
-document.getElementById('locateBtn').addEventListener('click', () => {
+document.getElementById("locateBtn").addEventListener("click", () => {
     if (!navigator.geolocation) {
-        alert('Geolocation is not supported by your browser.');
+        setStatus("Location is not supported by this browser. You can still browse stations near Abuja.");
         return;
     }
-    
-    const btn = document.getElementById('locateBtn');
-    const originalText = btn.textContent;
-    btn.textContent = '📍 Locating...';
-    
+
+    const button = document.getElementById("locateBtn");
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Locating…";
+    setStatus("Getting your location…");
+
     navigator.geolocation.getCurrentPosition(
-        pos => { 
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            
-            // Remove old user marker if it exists
-            if (userMarker) {
-                map.removeLayer(userMarker);
-            }
-
-            // Add the new Red Marker for the user
-            userMarker = L.marker([lat, lng], { icon: userIcon })
+        ({ coords }) => {
+            searchLocation = { lat: coords.latitude, lng: coords.longitude };
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.marker([coords.latitude, coords.longitude], { icon: userIcon })
                 .addTo(map)
-                .bindPopup("<b>📍 You are here!</b>")
-                .openPopup();
-
-            map.setView([lat, lng], 14); 
-            loadStations(lat, lng); 
-            
-            btn.textContent = originalText;
+                .bindPopup("You are here");
+            map.setView([coords.latitude, coords.longitude], 14);
+            loadStations(coords.latitude, coords.longitude);
+            button.disabled = false;
+            button.textContent = originalText;
         },
-        () => {
-            alert('Location access denied. Please allow location access to find stations near you.');
-            btn.textContent = originalText;
-        }
+        (error) => {
+            const message = error.code === error.PERMISSION_DENIED
+                ? "Location permission was denied. Allow location access in your browser settings, or browse stations near Abuja."
+                : error.code === error.POSITION_UNAVAILABLE
+                    ? "Your location is unavailable right now. Try again or browse stations near Abuja."
+                    : "Finding your location took too long. Try again or browse stations near Abuja.";
+            setStatus(message);
+            button.disabled = false;
+            button.textContent = originalText;
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
 });
 
-// 4. Filter Change Listeners
-['fuelFilter', 'brandFilter'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => {
-        const center = map.getCenter();
-        loadStations(center.lat, center.lng);
+["fuelFilter", "brandFilter", "radiusFilter"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+        loadStations(searchLocation.lat, searchLocation.lng);
     });
 });
 
-// 5. Modal Logic
-window.openReport = function(stationId, stationName) {
-    document.getElementById('reportStationId').value = stationId;
-    document.getElementById('modalTitle').textContent = `Report Price: ${stationName}`;
-    document.getElementById('reportModal').classList.remove('hidden');
+window.openReport = function(stationId, stationName, trigger) {
+    reportTrigger = trigger || document.activeElement;
+    document.getElementById("reportStationId").value = stationId;
+    document.getElementById("modalTitle").textContent = `Report Price: ${stationName}`;
+    if (document.getElementById("fuelFilter").value) {
+        document.getElementById("reportFuel").value =
+            document.getElementById("fuelFilter").value;
+    }
+    document.getElementById("reportModal").classList.remove("hidden");
+    document.getElementById("reportFuel").focus();
 };
 
 window.closeModal = function() {
-    document.getElementById('reportModal').classList.add('hidden');
-    document.getElementById('reportForm').reset();
+    document.getElementById("reportModal").classList.add("hidden");
+    document.getElementById("reportForm").reset();
+    if (reportTrigger) reportTrigger.focus();
 };
 
-// 6. Form Submission
-document.getElementById('reportForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
+document.getElementById("closeReportModal").addEventListener("click", window.closeModal);
+document.getElementById("reportModal").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") window.closeModal();
+});
+
+document.getElementById("reportForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+
     const body = {
-        station_id: document.getElementById('reportStationId').value,
-        fuel_type: document.getElementById('reportFuel').value,
-        price: document.getElementById('reportPrice').value,
-        queue_status: document.getElementById('reportQueue').value,
-        is_available: document.getElementById('reportAvailable').checked
+        station_id: document.getElementById("reportStationId").value,
+        fuel_type: document.getElementById("reportFuel").value,
+        price: document.getElementById("reportPrice").value,
+        queue_status: document.getElementById("reportQueue").value,
+        is_available: document.getElementById("reportAvailable").checked
     };
 
     try {
-        const res = await fetch('/api/report/', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(body) 
+        const response = await fetch("/api/report/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(body)
         });
-        
-        if (res.ok) { 
-            alert('Thank you! Your report helps other Nigerians.'); 
-            closeModal(); 
-            const c = map.getCenter(); 
-            loadStations(c.lat, c.lng); 
-        } else { 
-            const err = await res.json(); 
-            alert('Error submitting report: ' + err.error); 
-        }
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not submit your report.");
+
+        window.closeModal();
+        setStatus("Thank you — your price report helps other drivers.");
+        loadStations(searchLocation.lat, searchLocation.lng);
     } catch (error) {
-        alert('Network error. Please try again.');
+        setStatus(error.message || "Network error. Please try again.");
+    } finally {
+        submitButton.disabled = false;
     }
 });
 
-// 7. Initial Load
-loadStations(9.0765, 7.3986);
+loadStations(searchLocation.lat, searchLocation.lng);
 
-// --- OFFLINE / LOW DATA MODE LOGIC ---
-const offlineBanner = document.getElementById('offline-banner');
-
+const offlineBanner = document.getElementById("offline-banner");
 function updateOnlineStatus() {
-    if (navigator.onLine) {
-        offlineBanner.style.display = 'none';
-    } else {
-        offlineBanner.style.display = 'block';
-    }
+    offlineBanner.style.display = navigator.onLine ? "none" : "block";
 }
-
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
 updateOnlineStatus();
-
-// --- PUSH NOTIFICATION LOGIC ---
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-async function enableAlerts() {
-  const btn = document.getElementById('enableAlertsBtn');
-  if (!btn) return console.log("Alerts button not found");
-  
-  console.log("1. Button found. Getting Service Worker...");
-  const reg = await navigator.serviceWorker.ready;
-  
-  console.log("2. Requesting permission...");
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    // Your actual public key is inserted here
-    applicationServerKey: urlBase64ToUint8Array("BKsa4tyJhQBcuhzBvu8Kwb_iF4cGCos04K0Y8sgdPj_XKl97N3-e3uXbMTR1BmNyY4Ysn3q3GnzkW-qU9zBuv3U")
-  });
-  
-  console.log("3. Subscription created! Saving to backend...");
-  await fetch('/api/save-subscription/', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(sub.toJSON())
-  });
-  
-  btn.textContent = '✅ Alerts Enabled';
-  btn.style.background = '#059669';
-  btn.style.color = 'white';
-  btn.style.borderColor = '#059669';
-  console.log("4. DONE! Button is now green.");
-}
-
-const enableAlertsBtn = document.getElementById('enableAlertsBtn');
-if (enableAlertsBtn) {
-    enableAlertsBtn.addEventListener('click', enableAlerts);
-}

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,13 +21,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-5iaj=i4&006ln(+3j9idz%$ij84r+j4-$1akm7u3giodl0(0-5'
+def env_bool(name, default=False):
+    return os.environ.get(name, str(default)).lower() in {"1", "true", "yes", "on"}
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
+DEBUG = env_bool("DJANGO_DEBUG", False)
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
+    SECRET_KEY = "django-insecure-local-development-key-only"
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+if not DEBUG and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must contain your production hostname when DJANGO_DEBUG is false."
+    )
 
 
 # Application definition
@@ -75,16 +90,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # ← standard PostgreSQL engine
-        'NAME': 'naijafuel',
-        'USER': 'fueluser',
-        'PASSWORD':'password123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+if os.environ.get("POSTGRES_DB"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["POSTGRES_DB"],
+            "USER": os.environ.get("POSTGRES_USER", ""),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -121,8 +144,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / 'stations' / 'static']
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
@@ -130,16 +154,42 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
+    "default": {
+        "BACKEND": os.environ.get(
+            "EMAIL_BACKEND",
+            "django.core.mail.backends.console.EmailBackend"
+            if DEBUG
+            else "django.core.mail.backends.smtp.EmailBackend",
+        ),
+        "HOST": os.environ.get("EMAIL_HOST", ""),
+        "PORT": int(os.environ.get("EMAIL_PORT", "587")),
+        "USERNAME": os.environ.get("EMAIL_HOST_USER", ""),
+        "PASSWORD": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+        "USE_TLS": env_bool("EMAIL_USE_TLS", True),
+        "USE_SSL": env_bool("EMAIL_USE_SSL", False),
+        "TIMEOUT": int(os.environ.get("EMAIL_TIMEOUT", "10")),
+    }
 }
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", "NaijaFuelFinder <noreply@example.com>"
+)
 
 LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'index'
 
-{
-"subject": "mailto: <okeziekingsley60@gmail.com>",
-"publicKey": "BKsa4tyJhQBcuhzBvu8Kwb_iF4cGCos04K0Y8sgdPj_XKl97N3-e3uXbMTR1BmNyY4Ysn3q3GnzkW-qU9zBuv3U",
-"privateKey": "Mbci0BHmVXTBsZ2xOwrQ_kyP6UGk6h9phhJpQda_ZKM"
-}
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_HSTS_SECONDS = int(
+    os.environ.get("SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000")
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+if env_bool("USE_X_FORWARDED_PROTO", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

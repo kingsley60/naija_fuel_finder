@@ -30,6 +30,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = event.request.url;
 
+  // Cache API requests only; report submissions must always reach the server.
+  if (event.request.method !== 'GET') return;
+
   // STRATEGY 1: Map Tiles (Cache First)
   // Map images are huge. If we have them in cache, use them. Don't waste data re-downloading.
   if (url.includes('tile.openstreetmap.org')) {

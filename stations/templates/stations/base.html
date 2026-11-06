@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NaijaFuelFinder</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
     <meta name="theme-color" content="#064e3b">
@@ -17,18 +18,18 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
-    <nav class="navbar" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem;">
-    <h1 style="margin: 0;">⛽ NaijaFuelFinder</h1>
+    <nav class="navbar" aria-label="Main navigation">
+        <h1>⛽ NaijaFuelFinder</h1>
         <div>
             {% if user.is_authenticated %}
-                <span style="margin-right: 1rem; font-weight: 500;">Hello, {{ user.username }}</span>
-                <form action="{% url 'logout' %}" method="POST" style="display: inline;">
+                <span class="nav-greeting">Hello, {{ user.username }}</span>
+                <form action="{% url 'logout' %}" method="POST" class="nav-form">
                     {% csrf_token %}
-                    <button type="submit" style="background: none; border: 1px solid white; color: white; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer;">Logout</button>
+                    <button type="submit" class="nav-button">Logout</button>
                 </form>
             {% else %}
-                <a href="{% url 'login' %}" style="color: white; text-decoration: none; margin-right: 1rem; font-weight: 500;">Login</a>
-                <a href="{% url 'register' %}" style="background: white; color: #064e3b; padding: 0.4rem 0.8rem; border-radius: 6px; text-decoration: none; font-weight: 600;">Register</a>
+                <a href="{% url 'login' %}" class="nav-link">Login</a>
+                <a href="{% url 'register' %}" class="nav-link nav-link-highlight">Register</a>
             {% endif %}
         </div>
     </nav>
